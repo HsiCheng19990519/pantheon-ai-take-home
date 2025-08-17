@@ -65,6 +65,9 @@ My results in different stages are from the codes in following branches, respect
 - Results for CIFAR-10 DATASETS and G/D with CNN, with hinge loss + TTUR + EMA + SN (failed due to I do not have time to tune the parameters before the deadline).
 - https://wandb.ai/hsicheng/Tests/reports/loss-update-v1--VmlldzoxNDAyNzE1MA?accessToken=emwcjoh23kyxe8hmvy6l12idcpqkw0hqnw2012zqde00lzgtossixai0iiwmcc9w
 
+### `readme-update`
+- Add several sections at the top of `README.md` according to the requirements.
+
 ## Difficulties I encountered and how I overcame them
 
 ### 1) Moving from academic scripts to project-level hygiene
