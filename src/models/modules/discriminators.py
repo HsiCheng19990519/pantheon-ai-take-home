@@ -32,7 +32,7 @@ class Discriminator(nn.Module):
         validity = self.model(d_in)
         return validity
 
-class CNNDiscriminator32(nn.Module):
+class CNNDiscriminator(nn.Module):
     """
     DCGAN-style CNN discriminator with a flexible number of downsampling stages.
 
