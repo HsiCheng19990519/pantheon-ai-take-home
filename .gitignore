@@ -1,3 +1,6 @@
+logs
+.git
+
 # IDE
 .idea/
 
@@ -133,3 +136,18 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+__pycache__/
+*.pyc
+.venv/
+.env
+lightning_logs/
+wandb/
+checkpoints/
+outputs/
+logs/
+.hydra/
+data/
+datasets/
+.DS_Store
+.idea/
+.vscode/
