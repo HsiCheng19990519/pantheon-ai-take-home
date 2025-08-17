@@ -11,14 +11,18 @@ img_size: 32
 # TODO: instantiate the generator and discriminator objects with Hydra
 #       https://hydra.cc/docs/advanced/instantiate_objects/overview/
 generator:
-  _target_: src.models.modules.generators.Generator
+  _target_: src.models.modules.generators.CNNGenerator32
   n_classes: ${..n_classes}
   latent_dim: ${..latent_dim}
   channels: ${..channels}
   img_size: ${..img_size}
+  base_channels: ${..base_channels}
+  use_batchnorm: true
 
 discriminator:
-  _target_: src.models.modules.discriminators.Discriminator
+  _target_: src.models.modules.discriminators.CNNDiscriminator32
   n_classes: ${..n_classes}
   channels: ${..channels}
   img_size: ${..img_size}
+  base_channels: ${..base_channels}
+  use_spectral_norm: false
