@@ -35,7 +35,7 @@ The discriminator \(D\) provides the **training signal** that drives the generat
 
 ---
 
-### 4) How to ensure correct data sharding on multi-GPU training (PyTorch Lightning)
+### 4) If you wanted to train with multiple GPUs, what can you do in pytorch lightning to make sure data is allocated to the correct GPU?
 - Use **DDP** (or a DDP variant) so Lightning launches one process per GPU and synchronizes gradients correctly.
 - Rely on **DistributedSampler** (Lightning can set it automatically) to ensure each rank sees a **disjoint shard** each epoch; call `set_epoch(epoch)` so shuffling differs across epochs.
 - Avoid rank-dependent side effects in `training_step`; move tensors to the current device; keep RNG seeding deterministic when needed.
@@ -49,27 +49,59 @@ The discriminator \(D\) provides the **training signal** that drives the generat
 > Replace the placeholders below with your actual W&B links or image URLs.  
 > If you prefer screenshots, drop the PNGs into the repo (e.g., `reports/`) and point the image links there.
 
-**Project:** `your-wandb-entity/your-project-name`  
-**Branches → Runs (examples):**
-- `baseline/v1` → run: `baseline-lsgan-mnist-<RUN_ID>`
-- `cnn-update/v1` → run: `cnn32-mnist-<RUN_ID>`
-- `color-update/v1` → run: `cifar64-hinge-ttur-ema-<RUN_ID>`
+**Project:** `https://wandb.ai/hsicheng/Tests/workspace?nw=nwuserhsicheng19990519`
+My results in different stages are from the codes in following branches, respectively.
 
-### Training curves (W&B panel)
-[W&B Run – color-update/v1](<PASTE_WANDB_RUN_URL_HERE>)
+### `baseline/v1`
+- Results for basic assignments without open-ended tasks.
+- https://api.wandb.ai/links/hsicheng/idvbcnd6
 
-![Training curves — color-update/v1](<PASTE_WANDB_TRAINING_CURVES_IMAGE_URL_OR_PATH>)
+### `cnn-update/v1`
+- Results for MNIST datasets and G/D with CNN.
+- https://api.wandb.ai/links/hsicheng/xe6d89on
 
-### Generated samples (logged each epoch)
-- **Generator (current weights)**
+### `color-update/v1`
+- Results for CIFAR-10 datasets (64*64 resolution and RGB colors) and G/D with CNN.
+- https://wandb.ai/hsicheng/Tests/reports/color-update-v1--VmlldzoxNDAyNzEyNg?accessToken=xtyc7f37f1ldkxm7c13xm6ium5pbu05oixqykqql43q7rjma5h77vgbutjysf2fb
 
-![Generated samples — gen\_imgs](<PASTE_WANDB_GEN_IMGS_URL_OR_PATH>)
+### `loss-update/v1`
+- Results for CIFAR-10 DATASETS and G/D with CNN, with hinge loss + TTUR + EMA + SN (failed due to I do not have time to tune the parameters before the deadline).
+- https://wandb.ai/hsicheng/Tests/reports/loss-update-v1--VmlldzoxNDAyNzE1MA?accessToken=emwcjoh23kyxe8hmvy6l12idcpqkw0hqnw2012zqde00lzgtossixai0iiwmcc9w
 
-- **Generator EMA (exponential moving average)**
+## Difficulties I encountered and how I overcame them
 
-![Generated samples — gen\_imgs\_ema](<PASTE_WANDB_GEN_IMGS_EMA_URL_OR_PATH>)
+### 1) Moving from academic scripts to project-level hygiene
+- **Symptom:** Coming from physics and a 2-month internship, I wasn’t fully fluent with multi-file projects, Hydra configs, Lightning lifecycles, and reproducible runs.
+- **Action** I read the repo’s structure carefully, set up small, verifiable increments on separate branches, and used Hydra overrides for all experiments.
+- **Result:** A baseline that trains deterministically and a clean path to compare/rollback between variants.
 
-> Tip: prefer EMA images for qualitative display; they are typically more stable and representative.
+### 2) Hydra/OmegaConf interpolation errors (`${n_classes}` not found)
+- **Symptom:** Runs crashed during config printing (`InterpolationKeyError`).
+- **Diagnosis:** Generator/Discriminator blocks referenced parent keys with `${n_classes}` instead of `${..n_classes}` (relative interpolation).
+- **Action:** Fixed all nested references to `${..n_classes}`, `${..latent_dim}`, `${..channels}`, `${..img_size}`.
+- **Result:** Configs render correctly; experiments start reliably.
+
+### 3) W&B run marked as “failed” after successful training
+- **Symptom:** Training completed and images were logged, but the run showed **failed**.
+- **Diagnosis:** `trainer.test()` was invoked without explicitly passing `model/datamodule` on this Lightning version; test loop validation failed.
+- **Action:** Called `trainer.test(model=model, datamodule=datamodule, ckpt_path=None)` and added a guard to skip testing if a valid test loader is unavailable.
+- **Result:** Clean **finished** runs; artifacts and logs preserved.
+
+### 4) CNN made training much slower
+- **Symptom:** After switching to CNN, epochs were significantly slower on CPU.
+- **Action:** Moved training to the my personal GPU.
+- **Result:** Throughput acceptable; training remains stable for both MNIST and CIFAR-10.
+
+### 5) Reproducibility & rollback
+- **Symptom:** It’s easy to “improve” something and accidentally break earlier working pieces.
+- **Action:** Kept each milestone on its own branch (`baseline/v1`, `cnn-update/v1`, `color-update/v1`) and tagged stable points. All runs are traceable via W&B links and Hydra overrides.
+- **Result:** Fast rollback when a change regressed performance; clear story for reviewers.
+
+### 8) No valid image generated after advanced loss/strategy
+- **Action:** After hinge+TTUR+SN+EMA, reaching high-quality 64×64 CIFAR-10 generations within limited epochs remained challenging.
+- **What I tried:** Systematic, single-factor ablations logged in W&B (tags for SN on/off, base width, TTUR ratios, batch/accumulation). I monitored `D(real)`/`D(fake)` means, `d_loss_real/fake` medians, and side-by-side EMA vs non-EMA grids to decide next tweaks.
+- **Outcome:** Quality improved and training became reliable. **However**, within the given time budget I did **not** reach the visual quality I was aiming for on CIFAR-10. I would like to imporve it in the future if appropriate.
+
 
 ---
 
