@@ -1,0 +1,54 @@
+{
+    "os": "Windows-10-10.0.18363-SP0",
+    "python": "3.8.20",
+    "heartbeatAt": "2025-08-17T08:59:24.187922",
+    "startedAt": "2025-08-17T08:59:22.146896",
+    "docker": null,
+    "cuda": null,
+    "args": [
+        "experiment=train_mnist_gan.yaml"
+    ],
+    "state": "running",
+    "program": "run.py",
+    "codePathLocal": null,
+    "git": {
+        "remote": "https://github.com/HsiCheng19990519/pantheon-ai-take-home.git",
+        "commit": "36b01a3a034fda7a007ee88c089decb337bc7b4b"
+    },
+    "email": "hsicheng19990519@gmail.com",
+    "root": "C:/Users/hsicheng19990519/Desktop/pantheon/ai-take-home-test",
+    "host": "DESKTOP-9M4ES27",
+    "username": "hsicheng19990519",
+    "executable": "C:\\Users\\hsicheng19990519\\miniconda3\\envs\\pantheon-py38\\python.exe",
+    "cpu_count": 6,
+    "cpu_count_logical": 12,
+    "cpu_freq": {
+        "current": 2995.0,
+        "min": 0.0,
+        "max": 2995.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 2995.0,
+            "min": 0.0,
+            "max": 2995.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 953.8662071228027,
+            "used": 890.5784721374512
+        }
+    },
+    "gpu": "NVIDIA GeForce RTX 3060 Ti",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce RTX 3060 Ti",
+            "memory_total": 8589934592
+        }
+    ],
+    "memory": {
+        "total": 15.817794799804688
+    }
+}
