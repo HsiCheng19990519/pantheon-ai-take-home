@@ -46,9 +46,6 @@ The discriminator \(D\) provides the **training signal** that drives the generat
 
 ## W&B Evidence (graphs & images)
 
-> Replace the placeholders below with your actual W&B links or image URLs.  
-> If you prefer screenshots, drop the PNGs into the repo (e.g., `reports/`) and point the image links there.
-
 **Project:** `https://wandb.ai/hsicheng/Tests/workspace?nw=nwuserhsicheng19990519`
 My results in different stages are from the codes in following branches, respectively.
 
