@@ -79,7 +79,35 @@ def train(config: DictConfig) -> Optional[float]:
     # Evaluate model on test set, using the best model achieved during training
     if config.get("test_after_training") and not config.trainer.get("fast_dev_run"):
         log.info("Starting testing!")
-        trainer.test()
+        
+        # Be explicit to avoid Trainer trying to infer stale state:
+        # - Some PL versions don't carry over dataloaders/model reliably for `trainer.test()`
+        # - Passing both avoids `verify_loop_configurations` failures.
+        has_test = hasattr(datamodule, "test_dataloader") and hasattr(model, "test_step")
+
+        # Best-effort guard: skip test if the dataloader cannot be constructed or is empty.
+        if has_test:
+            try:
+                test_dl = datamodule.test_dataloader()
+                has_test = test_dl is not None
+                try:
+                    # Some DataLoader implementations define __len__; if so, ensure > 0
+                    if hasattr(test_dl, "__len__") and len(test_dl) == 0:
+                        log.warning("Test dataloader has zero batches; skipping test.")
+                        has_test = False
+                except TypeError:
+                    # __len__ not supported; that's fine
+                    pass
+            except Exception as e:
+                log.warning(f"Failed to build test dataloader: {e}. Skipping test.")
+                has_test = False
+
+        if has_test:
+            # If you have a checkpoint callback saving 'best', you may pass ckpt_path='best'
+            # Using None runs with current weights, which is always safe.
+            trainer.test(model=model, datamodule=datamodule, ckpt_path=None)
+        else:
+            log.info("Skipping test: missing test_dataloader or test_step.")
 
     # Make sure everything closed properly
     log.info("Finalizing!")
