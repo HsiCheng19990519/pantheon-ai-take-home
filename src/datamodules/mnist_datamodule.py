@@ -2,7 +2,7 @@ from typing import Optional, Tuple
 
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
-from torchvision.datasets import MNIST
+from torchvision.datasets import MNIST, CIFAR10
 from torchvision.transforms import transforms
 
 
@@ -32,6 +32,7 @@ class MNISTDataModule(LightningDataModule):
         num_workers: int = 0,
         pin_memory: bool = False,
         img_size: int = 32,
+        dataset: str = "mnist",
     ):
         super().__init__()
 
@@ -41,17 +42,28 @@ class MNISTDataModule(LightningDataModule):
         self.num_workers = num_workers
         self.pin_memory = pin_memory
         self.img_size = img_size
+        self.dataset = dataset.lower()
+        assert self.dataset in {"mnist", "cifar10"}, "dataset must be 'mnist' or 'cifar10'"
 
-        self.transforms = transforms.Compose(
-            [
-                transforms.Resize(self.img_size),
-                transforms.ToTensor(),
-                transforms.Normalize([0.5], [0.5])
-            ]
-        )
-
-        # self.dims is returned when you call datamodule.size()
-        self.dims = (1, self.img_size, self.img_size)
+        if self.dataset == "mnist":
+            self.transforms = transforms.Compose(
+                [
+                    transforms.Resize(self.img_size),
+                    transforms.ToTensor(),
+                    transforms.Normalize([0.5], [0.5])
+                ]
+            )
+            # self.dims is returned when you call datamodule.size()
+            self.dims = (1, self.img_size, self.img_size)
+        else:
+            self.transforms = transforms.Compose(
+                [
+                    transforms.Resize(self.img_size),           # upsample 32 -> 64
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                ]
+            )
+            self.dims = (3, self.img_size, self.img_size)
 
         self.data_train: Optional[Dataset] = None
         self.data_val: Optional[Dataset] = None
@@ -64,13 +76,22 @@ class MNISTDataModule(LightningDataModule):
     def prepare_data(self):
         """Download data if needed. This method is called only from a single GPU.
         Do not use it to assign state (self.x = y)."""
-        MNIST(self.data_dir, train=True, download=True)
-        MNIST(self.data_dir, train=False, download=True)
+        if self.dataset == "mnist":
+            MNIST(self.data_dir, train=True, download=True)
+            MNIST(self.data_dir, train=False, download=True)
+        else:
+            CIFAR10(self.data_dir, train=True, download=True)
+            CIFAR10(self.data_dir, train=False, download=True)
 
     def setup(self, stage: Optional[str] = None):
         """Load data. Set variables: self.data_train, self.data_val, self.data_test."""
-        trainset = MNIST(self.data_dir, train=True, transform=self.transforms)
-        testset = MNIST(self.data_dir, train=False, transform=self.transforms)
+        if self.dataset == "mnist":
+            trainset = MNIST(self.data_dir, train=True, transform=self.transforms)
+            testset = MNIST(self.data_dir, train=False, transform=self.transforms)
+        else:
+            trainset = CIFAR10(self.data_dir, train=True, transform=self.transforms)
+            testset = CIFAR10(self.data_dir, train=False, transform=self.transforms)
+            
         dataset = ConcatDataset(datasets=[trainset, testset])
         self.data_train, self.data_val, self.data_test = random_split(
             dataset, self.train_val_test_split

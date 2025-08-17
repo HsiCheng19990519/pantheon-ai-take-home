@@ -21,4 +21,5 @@ trainer:
 
 datamodule:
   batch_size: 64
-  train_val_test_split: [55_000, 5_000, 10_000]
+  train_val_test_split: [45_000, 5_000, 10_000]
+  img_size: 64
