@@ -21,25 +21,44 @@ class MNISTGANModel(LightningModule):
         self.discriminator = discriminator
         self.adversarial_loss = torch.nn.MSELoss()
 
+        # Keep LSGAN (MSE) as default for backward compatibility.
+        self.loss_type = getattr(self.hparams, "loss_type", "lsgan")
+
+        # EMA settings (for better sampling stability). Disabled by default.
+        self.ema_enabled = bool(getattr(self.hparams, "ema_enabled", False))
+        self.ema_decay = float(getattr(self.hparams, "ema_decay", 0.999))
+
+        if self.ema_enabled:
+            import copy
+            # Create a non-trainable shadow copy of the generator
+            self.generator_ema = copy.deepcopy(self.generator)
+            for p in self.generator_ema.parameters():
+                p.requires_grad = False
+
     def forward(self, z, labels) -> Tensor:
         return self.generator(z, labels)
 
     def configure_optimizers(self):
-        opt_g = torch.optim.Adam(
-            self.generator.parameters(),
-            lr=self.hparams.lr,
-            betas=(self.hparams.b1, self.hparams.b2),
-        )
-        opt_d = torch.optim.Adam(
-            self.discriminator.parameters(),
-            lr=self.hparams.lr,
-            betas=(self.hparams.b1, self.hparams.b2)
-        )
+        # TTUR: allow different lr/betas for G and D; fall back to single lr/betas if not provided.
+        lr_g = float(getattr(self.hparams, "lr_g", 0.0)) or float(self.hparams.lr)
+        lr_d = float(getattr(self.hparams, "lr_d", 0.0)) or float(self.hparams.lr)
+
+        b1_g = float(getattr(self.hparams, "b1_g", 0.0)) or float(self.hparams.b1)
+        b2_g = float(getattr(self.hparams, "b2_g", 0.0)) or float(self.hparams.b2)
+        b1_d = float(getattr(self.hparams, "b1_d", 0.0)) or float(self.hparams.b1)
+        b2_d = float(getattr(self.hparams, "b2_d", 0.0)) or float(self.hparams.b2)
+
+        opt_g = torch.optim.Adam(self.generator.parameters(), lr=lr_g, betas=(b1_g, b2_g))
+        opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr_d, betas=(b1_d, b2_d))
         return [opt_g, opt_d], []
+
 
     def training_step(self, batch, batch_idx, optimizer_idx) -> Union[Tensor, Dict[str, Any]]:
         log_dict, loss = self.step(batch, batch_idx, optimizer_idx)
         self.log_dict({"/".join(("train", k)): v for k, v in log_dict.items()})
+        if self.ema_enabled and optimizer_idx == 0:
+            # flag so that we update EMA *after* the optimizer step
+            self._did_g_step = True
         return loss
 
     def validation_step(self, batch, batch_idx) -> Union[Tensor, Dict[str, Any], None]:
@@ -53,6 +72,19 @@ class MNISTGANModel(LightningModule):
         log_dict, _ = self.step(batch, batch_idx)
         self.log_dict({"/".join(("test", k)): v for k, v in log_dict.items()})
         return None
+
+    def on_train_batch_end(self, outputs, batch, batch_idx, dataloader_idx: int = 0) -> None:
+        # Update EMA right after optimizer steps of G.
+        if getattr(self, "_did_g_step", False) and self.ema_enabled:
+            with torch.no_grad():
+                d = float(self.ema_decay)
+                for p_ema, p in zip(self.generator_ema.parameters(), self.generator.parameters()):
+                    p_ema.copy_(p_ema * d + p.detach() * (1.0 - d))
+                # synchronize buffers (e.g., BatchNorm running stats) to keep sampling stable
+                for b_ema, b in zip(self.generator_ema.buffers(), self.generator.buffers()):
+                    b_ema.copy_(b)
+        self._did_g_step = False
+
 
     def step(self, batch, batch_idx, optimizer_idx=None) -> Tuple[Dict[str, Tensor], Optional[Tensor]]:
         # TODO: implement the step method of the GAN model.
@@ -89,7 +121,13 @@ class MNISTGANModel(LightningModule):
             gen_imgs = self.generator(z, gen_labels)
             pred_fake = self.discriminator(gen_imgs, gen_labels)
             # TODO: Calculate loss to measure generator's ability to fool the discriminator
-            g_loss = self.adversarial_loss(pred_fake, valid)
+            if self.loss_type == "hinge":
+                # Generator wants D(fake) to be large; hinge-G loss = -E[D(fake)]
+                g_loss = -pred_fake.mean()
+            else:
+                # LSGAN (MSE) as before
+                g_loss = self.adversarial_loss(pred_fake, valid)
+
             log_dict.update({
                 "g_loss": g_loss.detach(),
                 "d_pred_fake_mean": pred_fake.detach().mean(),
@@ -111,9 +149,17 @@ class MNISTGANModel(LightningModule):
             pred_fake_detached = self.discriminator(gen_imgs_for_d, gen_labels)
 
             # TODO: Calculate loss for real images
-            loss_real = self.adversarial_loss(pred_real, valid)
+            if self.loss_type == "hinge":
+                loss_real = torch.relu(1.0 - pred_real).mean()
+            else:
+                loss_real = self.adversarial_loss(pred_real, valid)
+
             # TODO: Calculate loss for fake images
-            loss_fake = self.adversarial_loss(pred_fake_detached, fake)
+            if self.loss_type == "hinge":
+                loss_fake = torch.relu(1.0 + pred_fake_detached).mean()
+            else:
+                loss_fake = self.adversarial_loss(pred_fake_detached, fake)
+
             # TODO: Calculate total discriminator loss
             d_loss = 0.5 * (loss_real + loss_fake)
 
@@ -154,3 +200,16 @@ class MNISTGANModel(LightningModule):
                 # TODO: log fake images to wandb (https://docs.wandb.ai/guides/track/log/media)
                 #     : replace `None` with your wandb Image object
                 logger.experiment.log({"gen_imgs": wandb.Image(grid, caption=f"epoch={self.current_epoch}")})
+                
+        # Optionally log EMA samples for a side-by-side comparison (more stable visuals)
+        if getattr(self, "ema_enabled", False):
+            self.generator_ema.eval()
+            with torch.no_grad():
+                gen_imgs_ema = self.generator_ema(z, sample_labels)
+                grid_ema = vutils.make_grid(gen_imgs_ema, nrow=5, normalize=True, value_range=(-1, 1))
+            for logger in self.trainer.logger:
+                if type(logger).__name__ == "WandbLogger":
+                    logger.experiment.log({
+                        "gen_imgs_ema": wandb.Image(grid_ema, caption=f"epoch={self.current_epoch} (EMA)")
+                    })
+

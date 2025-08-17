@@ -2,7 +2,7 @@ _target_: src.datamodules.mnist_datamodule.MNISTDataModule
 
 dataset: cifar10         
 data_dir: ${data_dir} # data_dir is specified in config.yaml
-batch_size: 64
+batch_size: 128
 train_val_test_split: [45_000, 5_000, 10_000]
 img_size: 64
 num_workers: 0

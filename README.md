@@ -9,6 +9,71 @@
 
 </div>
 
+## Interview Questions
+
+### 1) What is the role of the discriminator in a GAN model? Use this project's discriminator as an example.
+The discriminator \(D\) provides the **training signal** that drives the generator \(G\) toward the data distribution. Concretely, \(D\) maps an input image (and an optional label for conditional GANs) to a scalar **real/fake** score. During training, \(D\) is optimized to increase this score for real data and decrease it for generated data; \(G\) is optimized to produce samples that **maximize** the discriminator’s score (i.e., “look real” to \(D\)). In short, \(D\) acts as a learned, adaptive **critic** whose gradients push \(G\) to reduce the discrepancy between \(p_\text{data}\) and \(p_G\).
+
+---
+
+### 2) The generator network in this code base takes two arguments: `noise` and `labels`. What are these inputs and how could they be used at inference time to generate an image of the number 5?
+- **Noise** \(\mathbf{z}\): a latent vector sampled from a simple prior (e.g., \(\mathcal{N}(0,I)\)). It injects stochasticity so the generator can produce diverse outputs.
+- **Labels** \(y\): class-conditioning information (e.g., digits \(0\!-\!9\)). In a conditional GAN, \(G\) takes \((\mathbf{z}, y)\) and learns class-specific manifolds.
+
+**To generate a “5”**: set \(y=5\) and sample multiple \(\mathbf{z}\) vectors; feed \((\mathbf{z}, y{=}5)\) into \(G\). We will get diverse images that all depict the digit ‘5’.
+
+---
+
+### 3) What steps are needed to deploy a model into production?
+1. **Define the contract**: inputs/outputs, quality & latency SLOs, safety/abuse constraints.
+2. **Package the model**: freeze/export or containerize a Python service with all preprocessing/postprocessing.
+3. **Serve**: expose via REST/gRPC; add batching/queuing; choose accelerators; scale horizontally (autoscaling) and vertically (FP16/INT8, TensorRT/ONNX Runtime).
+4. **Observability**: structured logs, metrics (latency, throughput, error rate), health checks, tracing, drift detection.
+5. **Release strategy**: shadow traffic, canary, rollback plans; version datasets and artifacts.
+6. **Security & compliance**: authn/authz, rate limits, PII handling, audit logging.
+7. **Lifecycle**: continuous evaluation, data collection & re-training, automated tests (unit/integration/regression).
+
+---
+
+### 4) How to ensure correct data sharding on multi-GPU training (PyTorch Lightning)
+- Use **DDP** (or a DDP variant) so Lightning launches one process per GPU and synchronizes gradients correctly.
+- Rely on **DistributedSampler** (Lightning can set it automatically) to ensure each rank sees a **disjoint shard** each epoch; call `set_epoch(epoch)` so shuffling differs across epochs.
+- Avoid rank-dependent side effects in `training_step`; move tensors to the current device; keep RNG seeding deterministic when needed.
+- **Log/Checkpoint only on rank 0** to prevent duplication/corruption.
+- Validate device placement and batch shapes per rank; don’t perform CPU/GPU copies inside tight loops.
+
+---
+
+## W&B Evidence (graphs & images)
+
+> Replace the placeholders below with your actual W&B links or image URLs.  
+> If you prefer screenshots, drop the PNGs into the repo (e.g., `reports/`) and point the image links there.
+
+**Project:** `your-wandb-entity/your-project-name`  
+**Branches → Runs (examples):**
+- `baseline/v1` → run: `baseline-lsgan-mnist-<RUN_ID>`
+- `cnn-update/v1` → run: `cnn32-mnist-<RUN_ID>`
+- `color-update/v1` → run: `cifar64-hinge-ttur-ema-<RUN_ID>`
+
+### Training curves (W&B panel)
+[W&B Run – color-update/v1](<PASTE_WANDB_RUN_URL_HERE>)
+
+![Training curves — color-update/v1](<PASTE_WANDB_TRAINING_CURVES_IMAGE_URL_OR_PATH>)
+
+### Generated samples (logged each epoch)
+- **Generator (current weights)**
+
+![Generated samples — gen\_imgs](<PASTE_WANDB_GEN_IMGS_URL_OR_PATH>)
+
+- **Generator EMA (exponential moving average)**
+
+![Generated samples — gen\_imgs\_ema](<PASTE_WANDB_GEN_IMGS_EMA_URL_OR_PATH>)
+
+> Tip: prefer EMA images for qualitative display; they are typically more stable and representative.
+
+---
+
+
 ## What is all this?
 This "programming assignment" is really just a way to get you used to
 some of the tools we use every day at Pantheon to help with our research.
