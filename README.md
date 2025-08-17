@@ -97,10 +97,16 @@ My results in different stages are from the codes in following branches, respect
 - **Action:** Kept each milestone on its own branch (`baseline/v1`, `cnn-update/v1`, `color-update/v1`) and tagged stable points. All runs are traceable via W&B links and Hydra overrides.
 - **Result:** Fast rollback when a change regressed performance; clear story for reviewers.
 
-### 8) No valid image generated after advanced loss/strategy
-- **Action:** After hinge+TTUR+SN+EMA, reaching high-quality 64×64 CIFAR-10 generations within limited epochs remained challenging.
-- **What I tried:** Systematic, single-factor ablations logged in W&B (tags for SN on/off, base width, TTUR ratios, batch/accumulation). I monitored `D(real)`/`D(fake)` means, `d_loss_real/fake` medians, and side-by-side EMA vs non-EMA grids to decide next tweaks.
-- **Outcome:** Quality improved and training became reliable. **However**, within the given time budget I did **not** reach the visual quality I was aiming for on CIFAR-10. I would like to imporve it in the future if appropriate.
+### 6) No valid image generated after advanced loss/strategy
+- **Symptom:** After hinge+TTUR+SN+EMA, reaching high-quality 64×64 CIFAR-10 generations within limited epochs remained challenging.
+- **Action:** Systematic, single-factor ablations logged in W&B (tags for SN on/off, base width, TTUR ratios, batch/accumulation). I monitored `D(real)`/`D(fake)` means, `d_loss_real/fake` medians, and side-by-side EMA vs non-EMA grids to decide next tweaks.
+- **Result:** Quality improved and training became reliable. **However**, within the given time budget I did **not** reach the visual quality I was aiming for on CIFAR-10. I would like to imporve it in the future if appropriate.
+
+### 7) `git push` failed due to large file.
+- **Symptom:** `git push` stalled/failed with `RPC failed; HTTP 408`, `send-pack: unexpected disconnect while reading sideband packet`.
+- **Diagnosis:** Local artifacts (e.g., `wandb/`, `checkpoints/`, `.hydra/`, `data/`) were committed; even after adding to `.gitignore` or deleting from the working tree, **large blobs remained in history**, inflating the push.
+- **Action:** Ignored artifacts and removed them from the index, then used `git-filter-repo` to purge large blobs from history and force-pushed. 
+- **Result:** Push succeeded; repo size is sane; subsequent pushes are small and fast. Branches are now available to reviewers without timeouts.
 
 
 ---
